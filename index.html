@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>NovaAI Chatbot</title>
+  <style>
+    body { font-family: sans-serif; background: #f1f1f1; padding: 20px; }
+    #chat { max-width: 600px; margin: auto; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 0 10px #ccc; max-height: 600px; overflow: auto; }
+    .bubble { margin: 10px 0; padding: 10px 15px; border-radius: 10px; max-width: 80%; word-wrap: break-word; }
+    .user { background: #5ed5ca; align-self: flex-end; }
+    .bot { background: #9635ff; }
+    .input-area { display: flex; margin-top: 15px; }
+    input[type="text"] { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #ccc; }
+    button { padding: 10px 15px; margin-left: 10px; border: none; border-radius: 5px; background: #0d6efd; color: white; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="chat">
+    <div id="messages" style="display: flex; flex-direction: column;"></div>
+    <div class="input-area">
+      <input type="text" id="input" placeholder="Tanya sesuatu ke NovaAI...">
+      <button onclick="sendMessage()">Kirim</button>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = 'AIzaSyClse0FKhDPX_4Ih304va9ozQ1nWaF-hX4';
+    let chatHistory = [];
+    
+    const sistemPrompt = {
+      role: "user",
+      parts: [
+        {
+          text: "Kamu adalah NovaAI, AI yang logis, cerdas, dan memberikan jawaban sesingkat dan sejelas mungkin. Kamu dibuat oleh ムーン. Awali dengan 'NovaAI:'"
+        }
+      ]
+    };
+    
+    async function kirimKeGemini(pesan) {
+      const res = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + API_KEY,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              sistemPrompt,
+              ...chatHistory.slice(-30),
+              {
+                role: "user",
+                parts: [{ text: pesan }]
+              }
+            ]
+          })
+        }
+      );
+      
+      const data = await res.json();
+      console.log("Full Response:", data);
+
+      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      return reply || "⚠️ NovaAI gagal menjawab.";
+    }
+    
+    async function sendMessage() {
+      const input = document.getElementById("input");
+      const messages = document.getElementById("messages");
+      const userText = input.value.trim();
+      if (!userText) return;
+      
+      const userBubble = document.createElement("div");
+      userBubble.className = "bubble user";
+      userBubble.textContent = userText;
+      messages.appendChild(userBubble);
+      
+      input.value = "";
+      input.disabled = true;
+      
+      const loadingBubble = document.createElement("div");
+      loadingBubble.className = "bubble bot";
+      loadingBubble.textContent = "NovaAI lagi mikir... 🤔";
+      messages.appendChild(loadingBubble);
+      
+      const botText = await kirimKeGemini(userText);
+      loadingBubble.remove();
+      
+      const botBubble = document.createElement("div");
+      botBubble.className = "bubble bot";
+      botBubble.textContent = botText;
+      messages.appendChild(botBubble);
+      
+      input.disabled = false;
+      input.focus();
+      messages.scrollTop = messages.scrollHeight;
+      
+      chatHistory.push({
+        role: "user",
+        parts: [{ text: userText }]
+      });
+      chatHistory.push({
+        role: "model",
+        parts: [{ text: botText }]
+      });
+      
+      if (chatHistory.length > 60) {
+        chatHistory = chatHistory.slice(-60);
+      }
+    }
+    
+    document.getElementById("input").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") sendMessage();
+    });
+  </script>
+</body>
+  </html>
